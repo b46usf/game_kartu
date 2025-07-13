@@ -1,6 +1,5 @@
 # 🧠 Shuffle & Recall - Memory Card Game
 
-![Vercel](https://vercel.badge/pinned?label=Vercel&color=cyan)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 ![Tech: Three.js](https://img.shields.io/badge/Built%20With-Three.js-orange)
 ![Repo size](https://img.shields.io/github/repo-size/b46usf/game_kartu)
