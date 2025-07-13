@@ -12,9 +12,19 @@
     <h1 class="text-2xl sm:text-3xl md:text-4xl font-bold mb-4">Shuffle & Recall 🧠🃏</h1>
     <button id="startBtn" class="bg-cyan-400 hover:bg-cyan-300 text-black font-semibold py-2 px-6 rounded">Mulai Game</button>
   </div>
-  <div id="inputPhase" class="hidden mt-6 mx-auto max-w-md text-center"></div>
+
   <div id="result" class="mt-4 text-lg font-semibold text-center"></div>
   <div id="countdown" class="absolute inset-0 flex items-center justify-center text-6xl font-bold text-cyan-300 z-20 hidden">30</div>
+
+  <div id="gameOver" class="absolute inset-0 hidden flex flex-col items-center justify-center z-30">
+    <div class="text-6xl font-bold text-red-500">GAME OVER 💥</div>
+    <button onclick="location.reload()" class="mt-4 bg-white text-black py-2 px-6 rounded">Coba Lagi</button>
+  </div>
+
+  <div id="nextPhase" class="absolute inset-0 hidden flex items-center justify-center z-30">
+    <button id="readyBtn" class="bg-green-400 text-black py-3 px-6 text-xl font-bold rounded">Saya Siap!</button>
+  </div>
+
   <canvas id="gameCanvas" class="w-full h-full block"></canvas>
 
   <script type="module">
@@ -44,23 +54,16 @@
     const ranks = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
     const deck = suits.flatMap(s => ranks.map(r => `${r}${s}`));
 
-    // 🔁 Fungsi URL lokal ke folder png/2x/
     function getPngUrl(label) {
       const rank = label.slice(0, -1).toUpperCase();
       const suit = label.slice(-1).toUpperCase();
       const suitName = { S: 'spade', H: 'heart', D: 'diamond', C: 'club' }[suit];
-
-      const rankName = {
-        'A': '1',
-        'J': 'jack',
-        'Q': 'queen',
-        'K': 'king'
-      }[rank] || rank; // untuk angka 2–10 langsung pakai rank as-is
-
+      const rankName = { 'A': '1', 'J': 'jack', 'Q': 'queen', 'K': 'king' }[rank] || rank;
       return `png/2x/${suitName}_${rankName}.png`;
     }
 
-    const CARD_BACK_URL = 'png/2x/back.png'; // kartu belakang lokal
+    const CARD_BACK_URL = 'png/2x/back.png';
+    let cards = [], shown = [], currentClick = 0;
 
     async function createCard(label) {
       const geo = new THREE.PlaneGeometry(1, 1.4);
@@ -86,16 +89,12 @@
       }
     }
 
-    let cards = [], shown = [];
-
     async function startGame() {
       document.getElementById('uiContainer').classList.add('hidden');
       scene.clear();
       scene.add(ambient, dir);
       cards = []; shown = [];
       document.getElementById('result').textContent = '';
-      const ip = document.getElementById('inputPhase');
-      ip.innerHTML = ''; ip.classList.add('hidden');
 
       const deckCopy = [...deck];
       shuffle(deckCopy);
@@ -108,67 +107,99 @@
         cards.push(c);
       }
 
-      const countdownEl = document.getElementById('countdown');
       let timeLeft = 30;
+      const countdownEl = document.getElementById('countdown');
       countdownEl.textContent = timeLeft;
       countdownEl.classList.remove('hidden');
 
       const interval = setInterval(() => {
         timeLeft--;
         countdownEl.textContent = timeLeft;
-
         if (timeLeft <= 0) {
           clearInterval(interval);
           countdownEl.classList.add('hidden');
-
           cards.forEach(flipCard);
-          setTimeout(() => {
-            cards.forEach(c => scene.remove(c));
-            askRecall();
-          }, 2000);
+          document.getElementById('nextPhase').classList.remove('hidden');
         }
       }, 1000);
     }
 
     function askRecall() {
-      const ip = document.getElementById('inputPhase');
-      ip.innerHTML = `<h3 class="text-lg font-semibold mb-2">Sebutkan kembali kartu yang tadi muncul:</h3>`;
-      shown.forEach((_, i) => {
-        const inp = document.createElement('input');
-        inp.id = `in${i}`;
-        inp.placeholder = `Kartu ke-${i + 1} (cth: 5H)`;
-        inp.className = 'p-2 m-1 w-full rounded bg-white text-black';
-        ip.appendChild(inp);
+      currentClick = 0;
+      document.getElementById('result').textContent = '';
+      document.getElementById('nextPhase').classList.add('hidden');
+
+      cards.forEach((card, index) => {
+        const marker = document.createElement('div');
+        marker.className = 'absolute text-white font-bold text-xl';
+        marker.style.pointerEvents = 'none';
+        marker.style.transform = 'translate(-50%, -50%)';
+        marker.id = `marker${index}`;
+        document.body.appendChild(marker);
+
+        function updateMarkerPosition() {
+          const vector = card.position.clone().project(camera);
+          const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
+          const y = (-vector.y * 0.5 + 0.5) * window.innerHeight;
+          marker.style.left = `${x}px`;
+          marker.style.top = `${y}px`;
+        }
+
+        card.userData.updateMarker = updateMarkerPosition;
+        card.userData.clickable = true;
+        card.userData.label = shown[index];
+        card.userData.marker = marker;
+
+        card.callback = () => {
+          if (!card.userData.clickable) return;
+
+          if (card.userData.label === shown[currentClick]) {
+            currentClick++;
+            marker.textContent = currentClick;
+            if (currentClick === shown.length) {
+              document.getElementById('result').textContent = `✅ Kamu berhasil mengingat semuanya!`;
+              cards.forEach(c => c.userData.clickable = false);
+              cleanupMarkers();
+            }
+          } else {
+            document.getElementById('gameOver').classList.remove('hidden');
+            cards.forEach(c => c.userData.clickable = false);
+            cleanupMarkers();
+          }
+        };
       });
-      const btn = document.createElement('button');
-      btn.textContent = 'Cek Jawaban';
-      btn.className = 'bg-cyan-400 text-black py-2 px-4 rounded';
-      btn.onclick = checkAnswer;
-      ip.appendChild(btn);
-      ip.classList.remove('hidden');
     }
 
-    function checkAnswer() {
-      let score = 0;
-      shown.forEach((val, i) => {
-        const v = document.getElementById(`in${i}`).value.trim().toUpperCase();
-        if (v === val) score++;
-      });
-      document.getElementById('result').textContent = `Skor kamu: ${score} / ${shown.length}`;
-      const btn = document.createElement('button');
-      btn.textContent = 'Main Lagi';
-      btn.className = 'bg-green-400 text-black py-2 px-4 rounded mt-2';
-      btn.onclick = () => location.reload();
-      document.getElementById('inputPhase').appendChild(btn);
+    function cleanupMarkers() {
+      document.querySelectorAll('[id^="marker"]').forEach(el => el.remove());
+      cards.length = 0;
     }
+
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    canvas.addEventListener('click', (event) => {
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(cards);
+      if (intersects.length > 0) {
+        const clicked = intersects[0].object;
+        if (clicked.callback) clicked.callback();
+      }
+    });
 
     function animate() {
       requestAnimationFrame(animate);
       renderer.render(scene, camera);
+      cards.forEach(card => {
+        if (card.userData.updateMarker) card.userData.updateMarker();
+      });
     }
     animate();
 
     document.getElementById('startBtn').addEventListener('click', startGame);
+    document.getElementById('readyBtn').addEventListener('click', askRecall);
   </script>
 </body>
 </html>
