@@ -162,18 +162,30 @@
 
         card.callback = () => {
           if (!card.userData.clickable) return;
+
+          // Flip kartu agar sisi depan terlihat saat diklik
+          if (!card.userData.flipped) flipCard(card);
+
+          // Cek apakah urutan jawaban benar
           if (card.userData.label === shown[currentClick]) {
             currentClick++;
-            marker.textContent = currentClick;
+            card.userData.marker.textContent = currentClick;
+
             if (currentClick === shown.length) {
               document.getElementById('result').textContent = '✅ Kamu berhasil mengingat semuanya!';
               cards.forEach(c => c.userData.clickable = false);
               cleanupMarkers();
             }
           } else {
-            document.getElementById('gameOver').classList.remove('hidden');
+            // ❌ Salah: disable sementara semua klik
             cards.forEach(c => c.userData.clickable = false);
-            cleanupMarkers();
+
+            // Setelah 1 detik, flip kembali kartu yang salah dan tampilkan GAME OVER
+            setTimeout(() => {
+              flipCard(card); // Kembali ke sisi belakang
+              document.getElementById('gameOver').classList.remove('hidden');
+              cleanupMarkers();
+            }, 1000);
           }
         };
       });
