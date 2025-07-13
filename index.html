@@ -112,6 +112,7 @@
 
         // Marker angka urutan (kuning)
         const marker = createMarker(`${i + 1}`, 'text-yellow-300 text-2xl', -70);
+        marker.id = `order${i}`;
         card.userData.orderMarker = marker;
         card.userData.updateOrderMarker = () => updateMarkerPosition(card, marker, -70);
       }
