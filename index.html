@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shuffle & Recall - Local PNG Cards</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>canvas { background: #1e1e1e; }</style>
+</head>
+<body class="dark bg-gray-900 text-white font-sans h-screen overflow-hidden">
+  <div id="uiContainer" class="absolute inset-0 flex flex-col items-center justify-center z-10 p-4">
+    <h1 class="text-2xl sm:text-3xl md:text-4xl font-bold mb-4">Shuffle & Recall 🧠🃏</h1>
+    <button id="startBtn" class="bg-cyan-400 hover:bg-cyan-300 text-black font-semibold py-2 px-6 rounded">Mulai Game</button>
+  </div>
+  <div id="inputPhase" class="hidden mt-6 mx-auto max-w-md text-center"></div>
+  <div id="result" class="mt-4 text-lg font-semibold text-center"></div>
+  <canvas id="gameCanvas" class="w-full h-full block"></canvas>
+
+  <script type="module">
+    import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js';
+
+    const canvas = document.getElementById('gameCanvas');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setClearColor(0x1e1e1e);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.z = 6;
+
+    const ambient = new THREE.AmbientLight(0xffffff, 0.9);
+    const dir = new THREE.DirectionalLight(0xffffff, 1);
+    dir.position.set(0, 5, 5);
+    scene.add(ambient, dir);
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    const suits = ['S','H','D','C'];
+    const ranks = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+    const deck = suits.flatMap(s => ranks.map(r => `${r}${s}`));
+
+    // 🔁 Fungsi URL lokal ke folder png/2x/
+    function getPngUrl(label) {
+      const rank = label.slice(0, -1);
+      const suit = label.slice(-1).toUpperCase();
+      const suitName = { S: 'spade', H: 'heart', D: 'diamond', C: 'club' }[suit];
+      return `png/2x/${suitName}_${rank}.png`; // arah lokal
+    }
+
+    const CARD_BACK_URL = 'png/2x/back.png'; // kartu belakang lokal
+
+    async function createCard(label) {
+      const geo = new THREE.PlaneGeometry(1, 1.4);
+      const tFront = await new Promise(r => new THREE.TextureLoader().load(getPngUrl(label), r));
+      const tBack = await new Promise(r => new THREE.TextureLoader().load(CARD_BACK_URL, r));
+      const matFront = new THREE.MeshStandardMaterial({ map: tFront, side: THREE.DoubleSide });
+      const matBack = new THREE.MeshStandardMaterial({ map: tBack, side: THREE.DoubleSide });
+
+      const mesh = new THREE.Mesh(geo, matFront);
+      mesh.userData = { flipped: false, frontMat: matFront, backMat: matBack };
+      return mesh;
+    }
+
+    function flipCard(card) {
+      card.material = card.userData.flipped ? card.userData.frontMat : card.userData.backMat;
+      card.userData.flipped = !card.userData.flipped;
+    }
+
+    function shuffle(arr) {
+      for (let i = arr.length -1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+    }
+
+    let cards = [], shown = [];
+
+    async function startGame() {
+      document.getElementById('uiContainer').classList.add('hidden');
+      scene.clear();
+      scene.add(ambient, dir);
+      cards = []; shown = [];
+      document.getElementById('result').textContent = '';
+      const ip = document.getElementById('inputPhase');
+      ip.innerHTML = ''; ip.classList.add('hidden');
+
+      const deckCopy = [...deck];
+      shuffle(deckCopy);
+      shown = deckCopy.slice(0, 5);
+
+      for (let i = 0; i < shown.length; i++) {
+        const c = await createCard(shown[i]);
+        c.position.x = (i - 2) * 1.2;
+        scene.add(c);
+        cards.push(c);
+      }
+
+      setTimeout(() => {
+        cards.forEach(flipCard);
+        setTimeout(() => {
+          cards.forEach(c => scene.remove(c));
+          askRecall();
+        }, 2000);
+      }, 30000);
+    }
+
+    function askRecall() {
+      const ip = document.getElementById('inputPhase');
+      ip.innerHTML = `<h3 class="text-lg font-semibold mb-2">Sebutkan kembali kartu yang tadi muncul:</h3>`;
+      shown.forEach((_, i) => {
+        const inp = document.createElement('input');
+        inp.id = `in${i}`;
+        inp.placeholder = `Kartu ke-${i + 1} (cth: 5H)`;
+        inp.className = 'p-2 m-1 w-full rounded bg-white text-black';
+        ip.appendChild(inp);
+      });
+      const btn = document.createElement('button');
+      btn.textContent = 'Cek Jawaban';
+      btn.className = 'bg-cyan-400 text-black py-2 px-4 rounded';
+      btn.onclick = checkAnswer;
+      ip.appendChild(btn);
+      ip.classList.remove('hidden');
+    }
+
+    function checkAnswer() {
+      let score = 0;
+      shown.forEach((val, i) => {
+        const v = document.getElementById(`in${i}`).value.trim().toUpperCase();
+        if (v === val) score++;
+      });
+      document.getElementById('result').textContent = `Skor kamu: ${score} / ${shown.length}`;
+      const btn = document.createElement('button');
+      btn.textContent = 'Main Lagi';
+      btn.className = 'bg-green-400 text-black py-2 px-4 rounded mt-2';
+      btn.onclick = () => location.reload();
+      document.getElementById('inputPhase').appendChild(btn);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    document.getElementById('startBtn').addEventListener('click', startGame);
+  </script>
+</body>
+</html>
