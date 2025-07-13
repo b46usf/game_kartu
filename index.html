@@ -8,8 +8,9 @@
   <style>canvas { background: #1e1e1e; }</style>
 </head>
 <body class="dark bg-gray-900 text-white font-sans h-screen overflow-hidden">
+  <!-- UI Elements -->
   <div id="uiContainer" class="absolute inset-0 flex flex-col items-center justify-center z-10 p-4">
-    <h1 class="text-2xl sm:text-3xl md:text-4xl font-bold mb-4">Shuffle & Recall 🧠🃏</h1>
+    <h1 class="text-3xl md:text-4xl font-bold mb-4">Shuffle & Recall 🧠🃏</h1>
     <button id="startBtn" class="bg-cyan-400 hover:bg-cyan-300 text-black font-semibold py-2 px-6 rounded">Mulai Game</button>
   </div>
 
@@ -40,9 +41,9 @@
     camera.position.z = 6;
 
     const ambient = new THREE.AmbientLight(0xffffff, 0.9);
-    const dir = new THREE.DirectionalLight(0xffffff, 1);
-    dir.position.set(0, 5, 5);
-    scene.add(ambient, dir);
+    const directional = new THREE.DirectionalLight(0xffffff, 1);
+    directional.position.set(0, 5, 5);
+    scene.add(ambient, directional);
 
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
@@ -54,16 +55,16 @@
     const ranks = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
     const deck = suits.flatMap(s => ranks.map(r => `${r}${s}`));
 
+    const CARD_BACK_URL = 'png/2x/back.png';
+    let cards = [], shown = [], currentClick = 0;
+
     function getPngUrl(label) {
       const rank = label.slice(0, -1).toUpperCase();
       const suit = label.slice(-1).toUpperCase();
       const suitName = { S: 'spade', H: 'heart', D: 'diamond', C: 'club' }[suit];
-      const rankName = { 'A': '1', 'J': 'jack', 'Q': 'queen', 'K': 'king' }[rank] || rank;
+      const rankName = { A: '1', J: 'jack', Q: 'queen', K: 'king' }[rank] || rank;
       return `png/2x/${suitName}_${rankName}.png`;
     }
-
-    const CARD_BACK_URL = 'png/2x/back.png';
-    let cards = [], shown = [], currentClick = 0;
 
     async function createCard(label) {
       const geo = new THREE.PlaneGeometry(1, 1.4);
@@ -83,7 +84,7 @@
     }
 
     function shuffle(arr) {
-      for (let i = arr.length -1; i > 0; i--) {
+      for (let i = arr.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [arr[i], arr[j]] = [arr[j], arr[i]];
       }
@@ -92,8 +93,11 @@
     async function startGame() {
       document.getElementById('uiContainer').classList.add('hidden');
       scene.clear();
-      scene.add(ambient, dir);
-      cards = []; shown = [];
+      scene.add(ambient, directional);
+      cards = [];
+      shown = [];
+      currentClick = 0;
+      cleanupMarkers();
       document.getElementById('result').textContent = '';
 
       const deckCopy = [...deck];
@@ -101,32 +105,21 @@
       shown = deckCopy.slice(0, 5);
 
       for (let i = 0; i < shown.length; i++) {
-        const c = await createCard(shown[i]);
-        c.position.x = (i - 2) * 1.2;
-        scene.add(c);
-        cards.push(c);
+        const card = await createCard(shown[i]);
+        card.position.x = (i - 2) * 1.2;
+        scene.add(card);
+        cards.push(card);
 
-        // 🟡 Tambahkan marker angka di atas setiap kartu
-        const marker = document.createElement('div');
-        marker.className = 'absolute text-yellow-300 font-bold text-2xl';
-        marker.style.pointerEvents = 'none';
-        marker.style.transform = 'translate(-50%, -50%)';
-        marker.id = `order${i}`;
-        marker.textContent = `${i + 1}`;
-        document.body.appendChild(marker);
-
-        function updatePosition() {
-          const vector = c.position.clone().project(camera);
-          const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
-          const y = (-vector.y * 0.5 + 0.5) * window.innerHeight - 70; // sedikit di atas kartu
-          marker.style.left = `${x}px`;
-          marker.style.top = `${y}px`;
-        }
-
-        c.userData.orderMarker = marker;
-        c.userData.updateOrderMarker = updatePosition;
+        // Marker angka urutan (kuning)
+        const marker = createMarker(`${i + 1}`, 'text-yellow-300 text-2xl', -70);
+        card.userData.orderMarker = marker;
+        card.userData.updateOrderMarker = () => updateMarkerPosition(card, marker, -70);
       }
 
+      startCountdown();
+    }
+
+    function startCountdown() {
       let timeLeft = 30;
       const countdownEl = document.getElementById('countdown');
       countdownEl.textContent = timeLeft;
@@ -135,17 +128,18 @@
       const interval = setInterval(() => {
         timeLeft--;
         countdownEl.textContent = timeLeft;
+
         if (timeLeft <= 0) {
           clearInterval(interval);
           countdownEl.classList.add('hidden');
 
           cards.forEach(flipCard);
+          document.querySelectorAll('[id^="order"]').forEach(el => el.remove());
 
-          // 🔄 Acak posisi X kartu setelah dibalik
           const shuffled = [...cards];
           shuffle(shuffled);
-          shuffled.forEach((c, i) => {
-            c.position.x = (i - 2) * 1.2 + (Math.random() * 0.3 - 0.15); // variasi posisi
+          shuffled.forEach((card, i) => {
+            card.position.x = (i - 2) * 1.2 + (Math.random() * 0.3 - 0.15);
           });
 
           document.getElementById('nextPhase').classList.remove('hidden');
@@ -159,34 +153,19 @@
       document.getElementById('nextPhase').classList.add('hidden');
 
       cards.forEach((card, index) => {
-        const marker = document.createElement('div');
-        marker.className = 'absolute text-white font-bold text-xl';
-        marker.style.pointerEvents = 'none';
-        marker.style.transform = 'translate(-50%, -50%)';
-        marker.id = `marker${index}`;
-        document.body.appendChild(marker);
-
-        function updateMarkerPosition() {
-          const vector = card.position.clone().project(camera);
-          const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
-          const y = (-vector.y * 0.5 + 0.5) * window.innerHeight;
-          marker.style.left = `${x}px`;
-          marker.style.top = `${y}px`;
-        }
-
-        card.userData.updateMarker = updateMarkerPosition;
-        card.userData.clickable = true;
-        card.userData.label = shown[index];
+        const marker = createMarker('', 'text-white text-xl', 0);
         card.userData.marker = marker;
+        card.userData.updateMarker = () => updateMarkerPosition(card, marker, 0);
+        card.userData.label = shown[index];
+        card.userData.clickable = true;
 
         card.callback = () => {
           if (!card.userData.clickable) return;
-
           if (card.userData.label === shown[currentClick]) {
             currentClick++;
             marker.textContent = currentClick;
             if (currentClick === shown.length) {
-              document.getElementById('result').textContent = `✅ Kamu berhasil mengingat semuanya!`;
+              document.getElementById('result').textContent = '✅ Kamu berhasil mengingat semuanya!';
               cards.forEach(c => c.userData.clickable = false);
               cleanupMarkers();
             }
@@ -199,8 +178,27 @@
       });
     }
 
+    function createMarker(text, classes, offsetY = 0) {
+      const marker = document.createElement('div');
+      marker.className = `absolute font-bold ${classes}`;
+      marker.style.pointerEvents = 'none';
+      marker.style.transform = 'translate(-50%, -50%)';
+      marker.textContent = text;
+      document.body.appendChild(marker);
+      return marker;
+    }
+
+    function updateMarkerPosition(card, marker, offsetY = 0) {
+      const vector = card.position.clone().project(camera);
+      const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
+      const y = (-vector.y * 0.5 + 0.5) * window.innerHeight + offsetY;
+      marker.style.left = `${x}px`;
+      marker.style.top = `${y}px`;
+    }
+
     function cleanupMarkers() {
       document.querySelectorAll('[id^="marker"]').forEach(el => el.remove());
+      document.querySelectorAll('[id^="order"]').forEach(el => el.remove());
       cards.length = 0;
     }
 
@@ -226,6 +224,7 @@
         if (card.userData.updateOrderMarker) card.userData.updateOrderMarker();
       });
     }
+
     animate();
 
     document.getElementById('startBtn').addEventListener('click', startGame);
