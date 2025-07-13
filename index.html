@@ -49,6 +49,21 @@
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
+
+      // Responsive repositioning cards
+      if (cards.length > 0) {
+        const cols = window.innerWidth <= 768 ? 2 : 3;
+        const rows = Math.ceil(cards.length / cols);
+        const spacingX = 1.4;
+        const spacingY = 2;
+
+        cards.forEach((card, i) => {
+          const col = i % cols;
+          const row = Math.floor(i / cols);
+          card.position.x = (col - (cols - 1) / 2) * spacingX;
+          card.position.y = ((rows - 1) / 2 - row) * spacingY;
+        });
+      }
     });
 
     const suits = ['S','H','D','C'];
@@ -57,6 +72,10 @@
 
     const CARD_BACK_URL = 'png/2x/back.png';
     let cards = [], shown = [], currentClick = 0;
+    let cols = 3;
+    let rows = 2;
+    let spacingX = 1.4;
+    let spacingY = 2;
 
     function getPngUrl(label) {
       const rank = label.slice(0, -1).toUpperCase();
@@ -104,9 +123,19 @@
       shuffle(deckCopy);
       shown = deckCopy.slice(0, 5);
 
+      cols = window.innerWidth <= 768 ? 2 : 3;
+      rows = Math.ceil(shown.length / cols);
+      spacingX = 1.4;
+      spacingY = 2;
+
       for (let i = 0; i < shown.length; i++) {
         const card = await createCard(shown[i]);
-        card.position.x = (i - 2) * 1.2;
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+
+        card.position.x = (col - (cols - 1) / 2) * spacingX;
+        card.position.y = ((rows - 1) / 2 - row) * spacingY;
+
         scene.add(card);
         cards.push(card);
 
@@ -140,7 +169,10 @@
           const shuffled = [...cards];
           shuffle(shuffled);
           shuffled.forEach((card, i) => {
-            card.position.x = (i - 2) * 1.2 + (Math.random() * 0.3 - 0.15);
+            const col = i % cols;
+            const row = Math.floor(i / cols);
+            card.position.x = (col - (cols - 1) / 2) * spacingX + (Math.random() * 0.3 - 0.15);
+            card.position.y = ((rows - 1) / 2 - row) * spacingY + (Math.random() * 0.3 - 0.15);
           });
 
           document.getElementById('nextPhase').classList.remove('hidden');
@@ -212,6 +244,10 @@
     function cleanupMarkers() {
       document.querySelectorAll('[id^="marker"]').forEach(el => el.remove());
       document.querySelectorAll('[id^="order"]').forEach(el => el.remove());
+      cards.forEach(card => {
+        if (card.userData.marker) card.userData.marker.remove();
+        if (card.userData.orderMarker) card.userData.orderMarker.remove();
+      });
       cards.length = 0;
     }
 
