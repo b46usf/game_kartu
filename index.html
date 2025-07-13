@@ -121,7 +121,7 @@
 
       const deckCopy = [...deck];
       shuffle(deckCopy);
-      shown = deckCopy.slice(0, 5);
+      shown = deckCopy.slice(0, 6);
 
       cols = window.innerWidth <= 768 ? 2 : 3;
       rows = Math.ceil(shown.length / cols);
