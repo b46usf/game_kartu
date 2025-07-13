@@ -118,7 +118,16 @@
         if (timeLeft <= 0) {
           clearInterval(interval);
           countdownEl.classList.add('hidden');
+
           cards.forEach(flipCard);
+
+          // 🔄 Acak posisi X kartu setelah dibalik
+          const shuffled = [...cards];
+          shuffle(shuffled);
+          shuffled.forEach((c, i) => {
+            c.position.x = (i - 2) * 1.2 + (Math.random() * 0.3 - 0.15); // variasi posisi
+          });
+
           document.getElementById('nextPhase').classList.remove('hidden');
         }
       }, 1000);
