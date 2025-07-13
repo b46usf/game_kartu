@@ -14,6 +14,7 @@
   </div>
   <div id="inputPhase" class="hidden mt-6 mx-auto max-w-md text-center"></div>
   <div id="result" class="mt-4 text-lg font-semibold text-center"></div>
+  <div id="countdown" class="absolute top-4 right-4 text-3xl font-bold text-cyan-400 z-20 hidden">30</div>
   <canvas id="gameCanvas" class="w-full h-full block"></canvas>
 
   <script type="module">
@@ -58,7 +59,7 @@
 
       return `png/2x/${suitName}_${rankName}.png`;
     }
-    
+
     const CARD_BACK_URL = 'png/2x/back.png'; // kartu belakang lokal
 
     async function createCard(label) {
@@ -107,13 +108,26 @@
         cards.push(c);
       }
 
-      setTimeout(() => {
-        cards.forEach(flipCard);
-        setTimeout(() => {
-          cards.forEach(c => scene.remove(c));
-          askRecall();
-        }, 2000);
-      }, 30000);
+      const countdownEl = document.getElementById('countdown');
+      let timeLeft = 30;
+      countdownEl.textContent = timeLeft;
+      countdownEl.classList.remove('hidden');
+
+      const interval = setInterval(() => {
+        timeLeft--;
+        countdownEl.textContent = timeLeft;
+
+        if (timeLeft <= 0) {
+          clearInterval(interval);
+          countdownEl.classList.add('hidden');
+
+          cards.forEach(flipCard);
+          setTimeout(() => {
+            cards.forEach(c => scene.remove(c));
+            askRecall();
+          }, 2000);
+        }
+      }, 1000);
     }
 
     function askRecall() {
