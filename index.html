@@ -45,12 +45,20 @@
 
     // 🔁 Fungsi URL lokal ke folder png/2x/
     function getPngUrl(label) {
-      const rank = label.slice(0, -1);
+      const rank = label.slice(0, -1).toUpperCase();
       const suit = label.slice(-1).toUpperCase();
       const suitName = { S: 'spade', H: 'heart', D: 'diamond', C: 'club' }[suit];
-      return `png/2x/${suitName}_${rank}.png`; // arah lokal
-    }
 
+      const rankName = {
+        'A': '1',
+        'J': 'jack',
+        'Q': 'queen',
+        'K': 'king'
+      }[rank] || rank; // untuk angka 2–10 langsung pakai rank as-is
+
+      return `png/2x/${suitName}_${rankName}.png`;
+    }
+    
     const CARD_BACK_URL = 'png/2x/back.png'; // kartu belakang lokal
 
     async function createCard(label) {
