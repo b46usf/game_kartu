@@ -105,6 +105,26 @@
         c.position.x = (i - 2) * 1.2;
         scene.add(c);
         cards.push(c);
+
+        // 🟡 Tambahkan marker angka di atas setiap kartu
+        const marker = document.createElement('div');
+        marker.className = 'absolute text-yellow-300 font-bold text-2xl';
+        marker.style.pointerEvents = 'none';
+        marker.style.transform = 'translate(-50%, -50%)';
+        marker.id = `order${i}`;
+        marker.textContent = `${i + 1}`;
+        document.body.appendChild(marker);
+
+        function updatePosition() {
+          const vector = c.position.clone().project(camera);
+          const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
+          const y = (-vector.y * 0.5 + 0.5) * window.innerHeight - 70; // sedikit di atas kartu
+          marker.style.left = `${x}px`;
+          marker.style.top = `${y}px`;
+        }
+
+        c.userData.orderMarker = marker;
+        c.userData.updateOrderMarker = updatePosition;
       }
 
       let timeLeft = 30;
@@ -203,6 +223,7 @@
       renderer.render(scene, camera);
       cards.forEach(card => {
         if (card.userData.updateMarker) card.userData.updateMarker();
+        if (card.userData.updateOrderMarker) card.userData.updateOrderMarker();
       });
     }
     animate();
