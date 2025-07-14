@@ -8,7 +8,7 @@
   <style>canvas { background: #1e1e1e; }</style>
 </head>
 <body class="dark bg-gray-900 text-white font-sans h-screen overflow-hidden">
-  <!-- UI Elements -->
+  
   <div id="uiContainer" class="absolute inset-0 flex flex-col items-center justify-center z-10 p-4">
     <h1 class="text-3xl md:text-4xl font-bold mb-4">Shuffle & Recall 🧠🃏</h1>
     <button id="startBtn" class="bg-cyan-400 hover:bg-cyan-300 text-black font-semibold py-2 px-6 rounded">Mulai Game</button>
@@ -50,7 +50,6 @@
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
 
-      // Responsive repositioning cards
       if (cards.length > 0) {
         const cols = window.innerWidth <= 768 ? 2 : 3;
         const rows = Math.ceil(cards.length / cols);
@@ -139,7 +138,6 @@
         scene.add(card);
         cards.push(card);
 
-        // Marker angka urutan (kuning)
         const marker = createMarker(`${i + 1}`, 'text-yellow-300 text-2xl', -70);
         marker.id = `order${i}`;
         card.userData.orderMarker = marker;
@@ -195,10 +193,8 @@
         card.callback = () => {
           if (!card.userData.clickable) return;
 
-          // Flip kartu agar sisi depan terlihat saat diklik
           if (!card.userData.flipped) flipCard(card);
 
-          // Cek apakah urutan jawaban benar
           if (card.userData.label === shown[currentClick]) {
             currentClick++;
             card.userData.marker.textContent = currentClick;
@@ -209,12 +205,10 @@
               cleanupMarkers();
             }
           } else {
-            // ❌ Salah: disable sementara semua klik
             cards.forEach(c => c.userData.clickable = false);
 
-            // Setelah 1 detik, flip kembali kartu yang salah dan tampilkan GAME OVER
             setTimeout(() => {
-              flipCard(card); // Kembali ke sisi belakang
+              flipCard(card);
               document.getElementById('gameOver').classList.remove('hidden');
               cleanupMarkers();
             }, 1000);
